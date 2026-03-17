@@ -40,7 +40,7 @@ _(Note: Add your 3-panel plot and your loss curve image here!)_
 
 Designed for modularity and high-performance scientific computing:
 
-```text
+```
 pinn_heat_equation/
 │
 ├── main.py                 # Execution script, FDM comparison, and visualization
@@ -51,6 +51,7 @@ pinn_heat_equation/
     ├── model.py            # PyTorch PINN architecture
     ├── physics.py          # Autograd PDE residuals and BC/IC generation
     └── solver.py           # Traditional FDM numerical solver baseline
+    ```
 
 ## 🚀 Tech Stack
 
