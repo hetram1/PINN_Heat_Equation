@@ -1,59 +1,25 @@
 ﻿# Physics-Informed Neural Network (PINN) for 1D Heat Equation
 
 ## 📌 Problem Statement
+Traditional Numerical Modeling techniques (like Finite Difference or Finite Element Methods) require rigid mesh discretization and face strict stability constraints (CFL conditions) when simulating transport phenomena. 
 
-Traditional numerical modeling techniques such as **Finite Difference Methods (FDM)** or **Finite Element Methods (FEM)** require rigid spatial discretization and often face stability constraints (e.g., CFL conditions) when simulating transport phenomena.
+This project solves the 1D Heat Diffusion Equation by implementing a Physics-Informed Neural Network (PINN) in PyTorch. The model embeds the governing Partial Differential Equation (PDE) directly into the loss function using automatic differentiation, offering a continuous, mesh-free solution. The PINN is rigorously benchmarked against both an explicit Finite Difference Method (FDM) and the exact Analytical Solution.
 
-This project demonstrates how a **Physics-Informed Neural Network (PINN)** can solve the **1D Heat Diffusion Equation** by embedding the governing Partial Differential Equation (PDE) directly into the neural network loss function using **automatic differentiation**.
+## 🧮 The Governing Physics
+The continuous transport of heat is governed by the parabolic PDE:
+$$\frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2}$$
 
-Unlike classical solvers, the PINN learns a **continuous surrogate model** that approximates the temperature field across space and time without relying on interior labeled grid data.
+**Domain & Constraints:**
+* **Spatial Domain:** $x \in [-1, 1]$
+* **Temporal Domain:** $t \in [0, 1]$
+* **Thermal Diffusivity:** $\alpha = 0.01$
+* **Initial Condition:** $u(x, 0) = -\sin(\pi x)$ 
+* **Boundary Conditions:** $u(-1, t) = 0$ and $u(1, t) = 0$
+* **Analytical Truth:** $u(x, t) = -e^{-\alpha \pi^2 t} \sin(\pi x)$
 
-The model is rigorously validated against:
+## ⚙️ Methodology & Architecture
 
-- **Explicit Finite Difference Method (FDM)**
-- **Exact Analytical Solution**
-
----
-
-# 🧮 Governing Physics
-
-The heat diffusion process is governed by the **parabolic PDE**:
-
-\[
-\frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2}
-\]
-
-### Domain & Physical Constraints
-
-| Parameter | Value |
-|----------|------|
-Spatial Domain | \(x \in [-1,1]\) |
-Temporal Domain | \(t \in [0,1]\) |
-Thermal Diffusivity | \(\alpha = 0.01\) |
-
-### Initial Condition
-
-\[
-u(x,0) = -\sin(\pi x)
-\]
-
-### Boundary Conditions
-
-\[
-u(-1,t)=0,\quad u(1,t)=0
-\]
-
-### Analytical Solution
-
-\[
-u(x,t) = -e^{-\alpha\pi^2t}\sin(\pi x)
-\]
-
----
-
-# ⚙️ PINN Methodology
-
-## Network Architecture
+### Network Architecture
 ```text
 Inputs: (x, t) 
    │
