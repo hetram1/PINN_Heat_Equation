@@ -51,7 +51,7 @@ pinn_heat_equation/
     ├── model.py            # PyTorch PINN architecture
     ├── physics.py          # Autograd PDE residuals and BC/IC generation
     └── solver.py           # Traditional FDM numerical solver baseline
-    ```
+```
 
 ## 🚀 Tech Stack
 
