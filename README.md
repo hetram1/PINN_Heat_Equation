@@ -1,70 +1,82 @@
-﻿# Physics-Informed Neural Network (PINN) vs. Finite Difference Method
+﻿# Physics-Informed Neural Network (PINN) for Scientific Computing
 
 ## 📌 Problem Statement
 
-Simulating transport phenomena and continuous physical systems traditionally requires discrete numerical grids. This project solves the 1D Heat Diffusion Equation by implementing a Physics-Informed Neural Network (PINN) in PyTorch, replacing the discrete mesh with a continuous, differentiable neural network approximation.
+Traditional Numerical Modeling techniques (like Finite Difference or Finite Element Methods) require rigid mesh discretization and face strict stability constraints (CFL conditions) when simulating transport phenomena.
 
-To validate the accuracy of the machine learning model, the PINN's predictions are directly benchmarked against a traditional Explicit Finite Difference Method (FDM) solver.
+This project solves the 1D Heat Diffusion Equation by implementing a Physics-Informed Neural Network (PINN) in PyTorch. The model embeds the governing Partial Differential Equation (PDE) directly into the loss function using automatic differentiation, offering a continuous, mesh-free solution. The PINN is rigorously benchmarked against both an explicit Finite Difference Method (FDM) and the exact Analytical Solution.
 
-## 🧮 The Governing Equation
+## 🧮 The Governing Physics
 
-The transport of heat is governed by the parabolic Partial Differential Equation (PDE):
+The continuous transport of heat is governed by the parabolic PDE:
 $$\frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2}$$
 
-**Physical Constraints:**
+**Domain & Constraints:**
 
 - **Spatial Domain:** $x \in [-1, 1]$
 - **Temporal Domain:** $t \in [0, 1]$
 - **Thermal Diffusivity:** $\alpha = 0.01$
-- **Initial Condition (IC):** $u(x, 0) = -\sin(\pi x)$
-- **Boundary Conditions (BC):** $u(-1, t) = 0$ and $u(1, t) = 0$
+- **Initial Condition:** $u(x, 0) = -\sin(\pi x)$
+- **Boundary Conditions:** $u(-1, t) = 0$ and $u(1, t) = 0$
+- **Analytical Truth:** $u(x, t) = -e^{-\alpha \pi^2 t} \sin(\pi x)$
 
-## ⚙️ Approach & Architecture
+## ⚙️ Methodology & Architecture
 
-1. **Neural Network Approximation:** A 4-layer Multi-Layer Perceptron (MLP) with 32 neurons per hidden layer maps coordinates $(x, t)$ to temperature $u$. A $\tanh$ activation function is used to ensure the network is twice-differentiable.
-2. **Physics Loss (Autograd):** Instead of calculating loss against a labeled dataset, PyTorch's Automatic Differentiation is used to compute exact spatial $\left(\frac{\partial^2 u}{\partial x^2}\right)$ and temporal $\left(\frac{\partial u}{\partial t}\right)$ derivatives at 10,000 randomly sampled collocation points.
-3. **Numerical Baseline:** An explicit FDM solver is implemented from scratch to provide a ground-truth temperature surface for error analysis.
+### Network Diagram
 
-## 📊 Results & Error Analysis
-
-After training for 3,000 epochs using the Adam optimizer, the PINN successfully converged, driving the PDE residual near zero.
-
-- **Convergence:** The network achieved a stable, logarithmic decay in total loss.
-- **Accuracy:** The absolute spatiotemporal error between the FDM numerical baseline and the continuous PINN prediction is $< 0.01$ across the entire domain.
-
-## Training Loss
-
-![Training Loss](plots/loss.png)
-
-## FDM vs PINN Comparison
-
-![FDM vs PINN Comparison](plots/comparison.png)
-
-
-## 📁 Repository Structure
-
-Designed for modularity and high-performance scientific computing:
-
+```text
+Inputs: (x, t)
+   │
+   ├─► [ Dense Layer (32) + Tanh ]
+   ├─► [ Dense Layer (32) + Tanh ]
+   ├─► [ Dense Layer (32) + Tanh ]
+   ├─► [ Dense Layer (32) + Tanh ]
+   │
+Output: Temperature u(x, t)
 ```
-pinn_heat_equation/
-│
-├── main.py                 # Execution script, FDM comparison, and visualization
-├── README.md               # Project documentation
-│
-└── src/
-    ├── __init__.py
-    ├── model.py            # PyTorch PINN architecture
-    ├── physics.py          # Autograd PDE residuals and BC/IC generation
-    └── solver.py           # Traditional FDM numerical solver baseline
-```
+
+Note: The tanh activation function is utilized strictly to ensure continuous, non-zero second-order spatial derivatives required to calculate the PDE residual via PyTorch Autograd.
+
+## Training Configuration
+
+- **Optimizer:** Adam
+- **Learning Rate:** $5\times10^{-3}$
+- **Epochs:** 3,000
+- **Collocation Strategy:** Uniform random sampling
+- **Dataset:** 10,000 physics (collocation) points; 1,500 boundary/initial points
+
+## 📊 Experimental Results & Validation
+
+The network achieved stable convergence while strictly respecting the governing physics without relying on labeled grid data.
+
+## Training Convergence and PDE Residual
+
+![Training Loss](plots/Figure_2.png)
+
+## Comparison
+
+![Comparison](plots/Figure_1.png)
+
+### Error Metrics
+
+- **L2 Relative Error:** 0.01090
+- **PDE Residual Bound:** Approaching 0 across the entire spatiotemporal domain
+
+## Computational Cost Analysis
+
+| Method     | Setup / Training Time | Inference Time | Method Type          |
+| ---------- | --------------------: | -------------: | -------------------- |
+| FDM (CPU)  |                   N/A |        ~0.15 s | Discrete Mesh        |
+| PINN (CPU) |               49.23 s |        ~0.02 s | Continuous Surrogate |
+
+Engineering trade-off: While PINNs require upfront cost to train, subsequent inference (evaluating the solution at arbitrary continuous space–time points) is fast and highly parallelizable, making PINNs useful as surrogate models in HPC workflows.
 
 ## 🚀 Tech Stack
 
-- **Language:** `Python`
-- **Deep Learning:** `PyTorch` (Autograd, Optimizers)
-- **Scientific Computing:** `NumPy`, `Matplotlib`
-- **Core Concepts:** Partial Differential Equations, Transport Phenomena, Scientific Machine Learning (SciML)
+- **Scientific Computing:** `PyTorch` (Autograd), `NumPy`, `Matplotlib`
+- **Domain Focus:** Transport Phenomena, Differential Equations, Scientific Machine Learning (SciML)
 
 ## Author
 
 - **Name:** Het Ram
+- **Degree:** B.Tech, Chemical Engineering — IIT Patna

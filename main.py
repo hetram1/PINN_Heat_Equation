@@ -12,7 +12,7 @@ import time
 
 from src.model import PINN
 from src.physics import generate_training_data, physics_loss, data_loss, alpha, x_min, x_max, t_max
-from src.solver import solve_fdm
+from src.solver import solve_fdm, solve_analytical
 
 def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -48,60 +48,86 @@ def train():
     return model, device, loss_history
 
 def evaluate_and_plot(model, device, loss_history):
+    from src.solver import solve_fdm, solve_analytical
     print("Running numerical FDM solver for comparison...")
-    # Run FDM
     nx, nt = 100, 2500
     x_fdm, t_fdm, u_fdm = solve_fdm(alpha, x_min, x_max, t_max, nx, nt)
     
-    print("Generating PINN predictions on the exact same FDM grid...")
-    # Create the exact same grid for the PINN
+    print("Calculating Exact Analytical Solution...")
+    _, _, u_exact = solve_analytical(alpha, x_min, x_max, t_max, nx, nt)
+    
+    print("Generating PINN predictions and calculating PDE Residuals...")
     X_plot, T_plot = np.meshgrid(x_fdm, t_fdm)
     x_flat = X_plot.flatten()[:, None]
     t_flat = T_plot.flatten()[:, None]
-    X_pred = np.hstack((x_flat, t_flat))
-    X_pred_tensor = torch.tensor(X_pred, dtype=torch.float32).to(device)
     
-    with torch.no_grad():
-        u_pinn_flat = model(X_pred_tensor).cpu().numpy()
-        
-    u_pinn = u_pinn_flat.reshape(X_plot.shape)
+    # --- THE FIX IS HERE ---
+    # We must define x and t as separate tensors BEFORE passing them to the model
+    x_t = torch.tensor(x_flat, dtype=torch.float32, requires_grad=True).to(device)
+    t_t = torch.tensor(t_flat, dtype=torch.float32, requires_grad=True).to(device)
     
-    # Calculate Absolute Error
-    error = np.abs(u_fdm - u_pinn)
+    # Combine them for the model input
+    X_pred_tensor = torch.cat([x_t, t_t], dim=1)
     
-    print("Generating professional visualization suite...")
-    # Plot 1: Loss Curve
-    plt.figure(figsize=(6, 4))
-    plt.plot(loss_history, color='blue', linewidth=2)
-    plt.yscale('log')
-    plt.title('PINN Training Convergence')
-    plt.xlabel('Epochs')
-    plt.ylabel('Total Loss (Log Scale)')
-    plt.grid(True, alpha=0.3)
+    # 1. Get PINN Predictions
+    u_pinn_tensor = model(X_pred_tensor)
+    
+    # 2. Calculate the PDE Residual across the entire grid
+    u_t = torch.autograd.grad(u_pinn_tensor, t_t, grad_outputs=torch.ones_like(u_pinn_tensor), create_graph=True)[0]
+    u_x = torch.autograd.grad(u_pinn_tensor, x_t, grad_outputs=torch.ones_like(u_pinn_tensor), create_graph=True)[0]
+    u_xx = torch.autograd.grad(u_x, x_t, grad_outputs=torch.ones_like(u_x), create_graph=True)[0]
+    
+    # Calculate residual and convert everything back to numpy for plotting
+    residual = (u_t - alpha * u_xx).detach().cpu().numpy().reshape(X_plot.shape)
+    u_pinn = u_pinn_tensor.detach().cpu().numpy().reshape(X_plot.shape)
+    # -----------------------
+    
+    l2_error = np.linalg.norm(u_exact - u_pinn) / np.linalg.norm(u_exact)
+    print(f"\n---> L2 Relative Error (PINN vs Exact): {l2_error:.6f} <---")
+    
+    print("Generating Visualizations...")
+    
+    # --- FIGURE 1: The 4-Panel Comparison ---
+    fig1, axes1 = plt.subplots(2, 2, figsize=(14, 10))
+    
+    c1 = axes1[0, 0].contourf(T_plot, X_plot, u_fdm, levels=100, cmap='coolwarm')
+    axes1[0, 0].set_title('Numerical Baseline (FDM)')
+    axes1[0, 0].set_ylabel('Position (x)')
+    fig1.colorbar(c1, ax=axes1[0, 0])
+    
+    c2 = axes1[0, 1].contourf(T_plot, X_plot, u_exact, levels=100, cmap='coolwarm')
+    axes1[0, 1].set_title('Exact Analytical Solution')
+    fig1.colorbar(c2, ax=axes1[0, 1])
+    
+    c3 = axes1[1, 0].contourf(T_plot, X_plot, u_pinn, levels=100, cmap='coolwarm')
+    axes1[1, 0].set_title('Neural Network (PINN)')
+    axes1[1, 0].set_xlabel('Time (t)')
+    axes1[1, 0].set_ylabel('Position (x)')
+    fig1.colorbar(c3, ax=axes1[1, 0])
+    
+    error = np.abs(u_exact - u_pinn)
+    c4 = axes1[1, 1].contourf(T_plot, X_plot, error, levels=100, cmap='inferno')
+    axes1[1, 1].set_title(f'Absolute Error |Exact - PINN|\nL2 Error: {l2_error:.5f}')
+    axes1[1, 1].set_xlabel('Time (t)')
+    fig1.colorbar(c4, ax=axes1[1, 1])
+    
     plt.tight_layout()
-    plt.show()
-
-    # Plot 2: The 3-Panel Comparison
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     
-    # FDM Plot
-    c1 = axes[0].contourf(T_plot, X_plot, u_fdm, levels=100, cmap='coolwarm')
-    axes[0].set_title('Numerical Baseline (FDM)')
-    axes[0].set_xlabel('Time (t)')
-    axes[0].set_ylabel('Position (x)')
-    fig.colorbar(c1, ax=axes[0])
+    # --- FIGURE 2: Engineering Diagnostics ---
+    fig2, axes2 = plt.subplots(1, 2, figsize=(12, 5))
     
-    # PINN Plot
-    c2 = axes[1].contourf(T_plot, X_plot, u_pinn, levels=100, cmap='coolwarm')
-    axes[1].set_title('Neural Network Prediction (PINN)')
-    axes[1].set_xlabel('Time (t)')
-    fig.colorbar(c2, ax=axes[1])
+    axes2[0].plot(loss_history, color='blue', linewidth=2)
+    axes2[0].set_yscale('log')
+    axes2[0].set_title('Training Convergence (Total Loss)')
+    axes2[0].set_xlabel('Epochs')
+    axes2[0].set_ylabel('Loss (Log Scale)')
+    axes2[0].grid(True, alpha=0.3)
     
-    # Error Plot
-    c3 = axes[2].contourf(T_plot, X_plot, error, levels=100, cmap='inferno')
-    axes[2].set_title('Absolute Error |FDM - PINN|')
-    axes[2].set_xlabel('Time (t)')
-    fig.colorbar(c3, ax=axes[2])
+    c_res = axes2[1].contourf(T_plot, X_plot, np.abs(residual), levels=100, cmap='viridis')
+    axes2[1].set_title('PDE Residual |f(x,t)| (Closer to 0 is better)')
+    axes2[1].set_xlabel('Time (t)')
+    axes2[1].set_ylabel('Position (x)')
+    fig2.colorbar(c_res, ax=axes2[1])
     
     plt.tight_layout()
     plt.show()

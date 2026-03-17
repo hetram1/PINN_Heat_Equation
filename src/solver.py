@@ -37,3 +37,22 @@ def solve_fdm(alpha, x_min, x_max, t_max, nx=100, nt=2500):
             u[n+1, i] = u[n, i] + r * (u[n, i+1] - 2*u[n, i] + u[n, i-1])
             
     return x, t, u
+
+
+def solve_analytical(alpha, x_min, x_max, t_max, nx=100, nt=2500):
+    """
+    Computes the exact analytical solution for the 1D Heat Equation 
+    given the specific IC: u(x,0) = -sin(pi*x) and BCs: u(-1,t)=u(1,t)=0.
+    """
+    import numpy as np
+    
+    # Create the exact same grid we use for FDM
+    x = np.linspace(x_min, x_max, nx)
+    t = np.linspace(0, t_max, nt)
+    X, T = np.meshgrid(x, t)
+    
+    # The exact mathematical solution
+    u_exact = -np.exp(-alpha * (np.pi**2) * T) * np.sin(np.pi * X)
+    
+    return x, t, u_exact
+
