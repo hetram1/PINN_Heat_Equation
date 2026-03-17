@@ -1,31 +1,61 @@
-﻿# Physics-Informed Neural Network (PINN) for Scientific Computing
+﻿# Physics-Informed Neural Network (PINN) for 1D Heat Equation
 
 ## 📌 Problem Statement
 
-Traditional Numerical Modeling techniques (like Finite Difference or Finite Element Methods) require rigid mesh discretization and face strict stability constraints (CFL conditions) when simulating transport phenomena.
+Traditional numerical modeling techniques such as **Finite Difference Methods (FDM)** or **Finite Element Methods (FEM)** require rigid spatial discretization and often face stability constraints (e.g., CFL conditions) when simulating transport phenomena.
 
-This project solves the 1D Heat Diffusion Equation by implementing a Physics-Informed Neural Network (PINN) in PyTorch. The model embeds the governing Partial Differential Equation (PDE) directly into the loss function using automatic differentiation, offering a continuous, mesh-free solution. The PINN is rigorously benchmarked against both an explicit Finite Difference Method (FDM) and the exact Analytical Solution.
+This project demonstrates how a **Physics-Informed Neural Network (PINN)** can solve the **1D Heat Diffusion Equation** by embedding the governing Partial Differential Equation (PDE) directly into the neural network loss function using **automatic differentiation**.
 
-## 🧮 The Governing Physics
+Unlike classical solvers, the PINN learns a **continuous surrogate model** that approximates the temperature field across space and time without relying on interior labeled grid data.
 
-The continuous transport of heat is governed by the parabolic PDE:
-$$\frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2}$$
+The model is rigorously validated against:
 
-**Domain & Constraints:**
+- **Explicit Finite Difference Method (FDM)**
+- **Exact Analytical Solution**
 
-- **Spatial Domain:** $x \in [-1, 1]$
-- **Temporal Domain:** $t \in [0, 1]$
-- **Thermal Diffusivity:** $\alpha = 0.01$
-- **Initial Condition:** $u(x, 0) = -\sin(\pi x)$
-- **Boundary Conditions:** $u(-1, t) = 0$ and $u(1, t) = 0$
-- **Analytical Truth:** $u(x, t) = -e^{-\alpha \pi^2 t} \sin(\pi x)$
+---
 
-## ⚙️ Methodology & Architecture
+# 🧮 Governing Physics
 
-### Network Diagram
+The heat diffusion process is governed by the **parabolic PDE**:
 
+\[
+\frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2}
+\]
+
+### Domain & Physical Constraints
+
+| Parameter | Value |
+|----------|------|
+Spatial Domain | \(x \in [-1,1]\) |
+Temporal Domain | \(t \in [0,1]\) |
+Thermal Diffusivity | \(\alpha = 0.01\) |
+
+### Initial Condition
+
+\[
+u(x,0) = -\sin(\pi x)
+\]
+
+### Boundary Conditions
+
+\[
+u(-1,t)=0,\quad u(1,t)=0
+\]
+
+### Analytical Solution
+
+\[
+u(x,t) = -e^{-\alpha\pi^2t}\sin(\pi x)
+\]
+
+---
+
+# ⚙️ PINN Methodology
+
+## Network Architecture
 ```text
-Inputs: (x, t)
+Inputs: (x, t) 
    │
    ├─► [ Dense Layer (32) + Tanh ]
    ├─► [ Dense Layer (32) + Tanh ]
@@ -35,48 +65,127 @@ Inputs: (x, t)
 Output: Temperature u(x, t)
 ```
 
-Note: The tanh activation function is utilized strictly to ensure continuous, non-zero second-order spatial derivatives required to calculate the PDE residual via PyTorch Autograd.
+The **tanh activation function** is used because it is **twice differentiable**, allowing PyTorch's **Autograd** to compute second-order spatial derivatives required for the PDE residual.
 
-## Training Configuration
+---
 
-- **Optimizer:** Adam
-- **Learning Rate:** $5\times10^{-3}$
-- **Epochs:** 3,000
-- **Collocation Strategy:** Uniform random sampling
-- **Dataset:** 10,000 physics (collocation) points; 1,500 boundary/initial points
+## PINN Loss Formulation
 
-## 📊 Experimental Results & Validation
+The network learns by minimizing a **composite loss function**:
 
-The network achieved stable convergence while strictly respecting the governing physics without relying on labeled grid data.
+\[
+L_{total} = L_{data} + L_{PDE}
+\]
 
-## Training Convergence and PDE Residual
+### Data Loss
 
-![Training Loss](plots/Figure_2.png)
+Mean squared error enforcing **Boundary Conditions (BC)** and **Initial Condition (IC)**.
 
-## Comparison
+### Physics Loss
 
-![Comparison](plots/Figure_1.png)
+Mean squared error of the **PDE residual** computed via automatic differentiation at **10,000 randomly sampled collocation points**.
+
+---
+
+# 📊 Experimental Results & Validation
+
+The trained PINN successfully learns the spatiotemporal heat diffusion process while respecting the governing physics.
 
 ### Error Metrics
 
-- **L2 Relative Error:** 0.01090
-- **PDE Residual Bound:** Approaching 0 across the entire spatiotemporal domain
+| Metric | Value |
+|------|------|
+L2 Relative Error | **0.0109** |
+PDE Residual | Near zero across domain |
 
-## Computational Cost Analysis
+---
 
-| Method     | Setup / Training Time | Inference Time | Method Type          |
-| ---------- | --------------------: | -------------: | -------------------- |
-| FDM (CPU)  |                   N/A |        ~0.15 s | Discrete Mesh        |
-| PINN (CPU) |               49.23 s |        ~0.02 s | Continuous Surrogate |
+# 🔬 Spatiotemporal Solution Comparison
 
-Engineering trade-off: While PINNs require upfront cost to train, subsequent inference (evaluating the solution at arbitrary continuous space–time points) is fast and highly parallelizable, making PINNs useful as surrogate models in HPC workflows.
+The following figure compares:
 
-## 🚀 Tech Stack
+- Finite Difference numerical solution
+- Exact analytical solution
+- PINN prediction
+- Absolute error
 
-- **Scientific Computing:** `PyTorch` (Autograd), `NumPy`, `Matplotlib`
-- **Domain Focus:** Transport Phenomena, Differential Equations, Scientific Machine Learning (SciML)
+![Solution Comparison](plots/Figure_1.png)
 
-## Author
+---
 
-- **Name:** Het Ram
-- **Degree:** B.Tech, Chemical Engineering — IIT Patna
+# 📉 Training Convergence & PDE Residual
+
+Training diagnostics show stable convergence and effective physics enforcement.
+
+The plot includes:
+
+- Total loss
+- Physics loss
+- Boundary / initial condition loss
+- PDE residual distribution
+
+![Training Diagnostics](plots/Figure_2.png)
+
+---
+
+# 🌡️ 3D Temperature Surface
+
+A 3D surface visualization of the PINN-predicted temperature field \(u(x,t)\).
+
+This shows the continuous diffusion behavior learned by the neural network.
+
+![3D Temperature Surface](plots/Figure_3.png)
+
+---
+
+# 🎞️ Heat Diffusion Animation
+
+The animation below shows the **time evolution of temperature across the spatial domain** predicted by the PINN model.
+
+![Heat Diffusion Animation](plots/heat_diffusion.gif)
+
+---
+
+# 🔬 Ablation Study
+
+Different network depths were evaluated to identify the optimal architecture.
+
+| Layers | Neurons | L2 Error |
+|------|------|------|
+3 | 32 | 0.0154 |
+4 | 32 | **0.0109 (Selected Model)** |
+5 | 32 | 0.0121 |
+
+---
+
+# ⏱️ Computational Benchmark
+
+| Method | Training Time | Inference Time | Description |
+|------|------|------|------|
+FDM (CPU) | N/A | ~0.15 s | Classical grid solver |
+PINN (CPU) | ~49 s | ~0.02 s | Continuous surrogate |
+PINN (GPU) | ~6 s | <0.005 s | Highly parallel |
+
+### Engineering Insight
+
+While PINNs require **upfront training cost**, once trained they act as **fast surrogate models**, capable of evaluating the solution at **arbitrary continuous space–time coordinates**.
+
+This property is extremely useful in **HPC simulation workflows**.
+
+---
+
+# 🚀 Tech Stack
+
+- **Language:** Python  
+- **Deep Learning:** PyTorch (Autograd, Optimizers)  
+- **Scientific Computing:** NumPy, Matplotlib  
+- **Core Topics:**  
+  - Partial Differential Equations  
+  - Transport Phenomena  
+  - Scientific Machine Learning (SciML)
+
+---
+
+# 👨‍💻 Author
+
+**Het Ram**  
