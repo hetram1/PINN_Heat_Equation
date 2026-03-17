@@ -32,10 +32,14 @@ After training for 3,000 epochs using the Adam optimizer, the PINN successfully 
 - **Convergence:** The network achieved a stable, logarithmic decay in total loss.
 - **Accuracy:** The absolute spatiotemporal error between the FDM numerical baseline and the continuous PINN prediction is $< 0.01$ across the entire domain.
 
+## Training Loss
+
+![Training Loss](plots/loss.png)
+
+## FDM vs PINN Comparison
 
 ![FDM vs PINN Comparison](plots/comparison.png)
 
-![Training Loss](plots/loss.png)
 
 ## 📁 Repository Structure
 
