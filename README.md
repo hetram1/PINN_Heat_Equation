@@ -34,6 +34,7 @@ After training for 3,000 epochs using the Adam optimizer, the PINN successfully 
 
 
 ![FDM vs PINN Comparison](plots/comparison.png)
+
 ![Training Loss](plots/loss.png)
 
 ## 📁 Repository Structure
